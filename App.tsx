@@ -28,6 +28,7 @@ const App: React.FC = () => {
   });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const isDragging = useRef(false);
@@ -82,6 +83,7 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Fixed High Resolution for Export
     const outputWidth = 1080;
     const outputHeight = 1920;
     canvas.width = outputWidth;
@@ -90,6 +92,7 @@ const App: React.FC = () => {
     ctx.clearRect(0, 0, outputWidth, outputHeight);
     ctx.save();
 
+    // 1. Draw Image
     const drawWidth = img.naturalWidth * transform.scale;
     const drawHeight = img.naturalHeight * transform.scale;
     const basePosX = (outputWidth - drawWidth) / 2;
@@ -98,16 +101,17 @@ const App: React.FC = () => {
     ctx.drawImage(img, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
     ctx.restore();
 
+    // 2. Draw UI Overlay
     const W = outputWidth;
     const H = outputHeight;
     const side = W / 2;
     const rectX = (W - side) / 2;
     const rectY = (H - side) / 2;
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
 
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 6;
@@ -135,55 +139,59 @@ const App: React.FC = () => {
     const displayText = `⏱️ ${timeDisplay}    📍 ${runData.distance || '0.0'}km    ⚡ ${paceDisplay}`;
     ctx.fillText(displayText, W / 2, rectY + side - margin);
 
-    setCanvasState(prev => ({ ...prev, processedUrl: canvas.toDataURL('image/jpeg', 0.85) }));
+    // Note: Removed toDataURL from here to keep interaction at 60fps
   }, [canvasState.image, runData, transform, calculatePace]);
 
   useEffect(() => {
     drawCanvas();
   }, [drawCanvas]);
 
-  // Interaction Handlers (Simplified)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    isDragging.current = true;
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const link = document.createElement('a');
+    link.download = `runsnap-${Date.now()}.jpg`;
+    link.href = dataUrl;
+    link.click();
   };
-  const handleMouseMove = (e: React.MouseEvent) => {
+
+  // Improved Interaction Logic
+  const getMoveRatio = () => {
+    if (!containerRef.current) return 1;
+    return 1080 / containerRef.current.clientWidth;
+  };
+
+  const handleStart = (x: number, y: number) => {
+    isDragging.current = true;
+    lastMousePos.current = { x, y };
+  };
+
+  const handleMove = (x: number, y: number) => {
     if (!isDragging.current || !canvasState.image) return;
+    const ratio = getMoveRatio();
+    const dx = (x - lastMousePos.current.x) * ratio;
+    const dy = (y - lastMousePos.current.y) * ratio;
+
     setTransform(prev => ({
       ...prev,
-      offsetX: prev.offsetX + (e.clientX - lastMousePos.current.x) * 2,
-      offsetY: prev.offsetY + (e.clientY - lastMousePos.current.y) * 2
+      offsetX: prev.offsetX + dx,
+      offsetY: prev.offsetY + dy
     }));
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    lastMousePos.current = { x, y };
   };
-  const handleMouseUp = () => isDragging.current = false;
-  const handleWheel = (e: React.WheelEvent) => {
-    if (!canvasState.image) return;
-    const delta = e.deltaY > 0 ? 0.95 : 1.05;
-    setTransform(prev => ({ ...prev, scale: Math.max(0.1, Math.min(10, prev.scale * delta)) }));
-  };
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      isDragging.current = true;
-      lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else if (e.touches.length === 2) {
-      lastPinchDist.current = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-    }
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!canvasState.image) return;
-    if (e.touches.length === 1 && isDragging.current) {
-      setTransform(prev => ({
-        ...prev,
-        offsetX: prev.offsetX + (e.touches[0].clientX - lastMousePos.current.x) * 2,
-        offsetY: prev.offsetY + (e.touches[0].clientY - lastMousePos.current.y) * 2
-      }));
-      lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else if (e.touches.length === 2 && lastPinchDist.current !== null) {
-      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      setTransform(prev => ({ ...prev, scale: Math.max(0.1, Math.min(10, prev.scale * (dist / lastPinchDist.current!))) }));
+
+  const handlePinch = (dist: number) => {
+    if (!lastPinchDist.current) {
       lastPinchDist.current = dist;
+      return;
     }
+    const ratio = dist / lastPinchDist.current;
+    setTransform(prev => ({
+      ...prev,
+      scale: Math.max(0.05, Math.min(20, prev.scale * ratio))
+    }));
+    lastPinchDist.current = dist;
   };
 
   return (
@@ -197,16 +205,9 @@ const App: React.FC = () => {
             <span className="font-black text-lg italic tracking-tighter">RunSnap</span>
           </div>
           <button 
-            onClick={() => {
-              if (canvasState.processedUrl) {
-                const link = document.createElement('a');
-                link.download = `runsnap-${Date.now()}.jpg`;
-                link.href = canvasState.processedUrl;
-                link.click();
-              }
-            }}
-            disabled={!canvasState.processedUrl}
-            className={`px-5 py-2 rounded-full font-bold text-xs transition-all ${canvasState.processedUrl ? 'bg-black text-white active:scale-95' : 'bg-gray-100 text-gray-300'}`}
+            onClick={handleDownload}
+            disabled={!canvasState.image}
+            className={`px-5 py-2 rounded-full font-bold text-xs transition-all ${canvasState.image ? 'bg-black text-white active:scale-95' : 'bg-gray-100 text-gray-300'}`}
           >
             저장하기
           </button>
@@ -215,7 +216,7 @@ const App: React.FC = () => {
 
       <main className="max-w-xl mx-auto px-4 mt-6 flex flex-col gap-6">
         
-        {/* Step 1: Input Section */}
+        {/* Workout Data Section */}
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-end mb-4 px-1">
             <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Workout Data</h2>
@@ -226,7 +227,7 @@ const App: React.FC = () => {
           
           <div className="grid grid-cols-1 gap-4">
             <div className="grid grid-cols-3 gap-3">
-              <div className="relative group">
+              <div className="relative">
                 <input type="number" name="timeHours" value={runData.timeHours} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">hr</span>
               </div>
@@ -247,12 +248,39 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Step 2: Preview & Image Upload Section */}
-        <section className="bg-white p-3 rounded-[2.5rem] shadow-sm border border-gray-100">
+        {/* Preview Section */}
+        <section className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-gray-100">
           <div 
-            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.2rem] flex items-center justify-center select-none touch-none ${!canvasState.image ? 'bg-gray-50 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
-            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onWheel={handleWheel}
-            onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => { isDragging.current = false; lastPinchDist.current = null; }}
+            ref={containerRef}
+            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.1rem] flex items-center justify-center select-none touch-none ${!canvasState.image ? 'bg-gray-50 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
+            style={{ touchAction: 'none' }} // Critical for mobile interaction
+            onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+            onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
+            onMouseUp={() => isDragging.current = false}
+            onMouseLeave={() => isDragging.current = false}
+            onWheel={(e) => {
+              if (!canvasState.image) return;
+              const delta = e.deltaY > 0 ? 0.9 : 1.1;
+              setTransform(prev => ({ ...prev, scale: Math.max(0.05, Math.min(20, prev.scale * delta)) }));
+            }}
+            onTouchStart={(e) => {
+              if (e.touches.length === 1) {
+                handleStart(e.touches[0].clientX, e.touches[0].clientY);
+              } else if (e.touches.length === 2) {
+                lastPinchDist.current = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+              }
+            }}
+            onTouchMove={(e) => {
+              if (e.touches.length === 1) {
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+              } else if (e.touches.length === 2) {
+                handlePinch(Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY));
+              }
+            }}
+            onTouchEnd={() => {
+              isDragging.current = false;
+              lastPinchDist.current = null;
+            }}
             onClick={() => !canvasState.image && fileInputRef.current?.click()}
           >
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
@@ -262,9 +290,8 @@ const App: React.FC = () => {
                 <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-200 mx-auto mb-4">
                   <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </div>
-                <p className="text-sm font-black text-gray-800">인증샷 가져오기</p>
-                <p className="text-[10px] font-bold text-gray-400 mt-1 italic leading-tight">갤러리에서 사진을 선택하세요</p>
-                <p className="text-[10px] font-bold text-gray-400 mt-1 italic leading-tight">사진은 로컬에서 처리됩니다. 서버에 저장되지 않아요 :) </p>
+                <p className="text-sm font-black text-gray-800">사진 업로드</p>
+                <p className="text-[10px] font-bold text-gray-400 mt-1 italic">갤러리에서 사진을 선택하세요</p>
               </div>
             ) : (
               <canvas ref={canvasRef} className="max-w-full max-h-full object-contain pointer-events-none" />
@@ -273,17 +300,17 @@ const App: React.FC = () => {
 
           {canvasState.image && (
             <div className="p-4 flex justify-between items-center">
-               <div className="flex gap-1.5">
-                  <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200">사진 변경</button>
-                  <button onClick={() => setTransform({ scale: 1, offsetX: 0, offsetY: 0 })} className="text-[10px] font-black text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200">초기화</button>
+               <div className="flex gap-2">
+                  <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl">사진 변경</button>
+                  <button onClick={() => setTransform({ scale: 1, offsetX: 0, offsetY: 0 })} className="text-[10px] font-black text-gray-400 bg-gray-50 px-4 py-2 rounded-xl">위치 초기화</button>
                </div>
-               <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Story 9:16</span>
+               <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Story 9:16</span>
             </div>
           )}
         </section>
       </main>
 
-      <footer className="mt-12 text-center text-[9px] font-black text-gray-300 tracking-[0.3em] uppercase">
+      <footer className="mt-12 text-center text-[9px] font-black text-gray-300 tracking-[0.4em] uppercase">
         RunSnap Studio
       </footer>
     </div>
