@@ -13,7 +13,7 @@ const App: React.FC = () => {
     timeHours: '00',
     timeMinutes: '30',
     timeSeconds: '00',
-    distance: '4.2',
+    distance: '5.0',
   });
   
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -30,10 +30,24 @@ const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Interaction states
   const isDragging = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const lastPinchDist = useRef<number | null>(null);
+
+  const calculatePace = useCallback(() => {
+    const distanceNum = parseFloat(runData.distance) || 0;
+    if (distanceNum <= 0) return "-'--\"";
+    
+    const totalSeconds = (parseInt(runData.timeHours || '0') * 3600) + 
+                        (parseInt(runData.timeMinutes || '0') * 60) + 
+                        parseInt(runData.timeSeconds || '0');
+    
+    const paceInSeconds = totalSeconds / distanceNum;
+    const pMin = Math.floor(paceInSeconds / 60);
+    const pSec = Math.floor(paceInSeconds % 60);
+    
+    return pMin < 100 ? `${pMin}'${pSec.toString().padStart(2, '0')}"` : "--'--\"";
+  }, [runData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -76,45 +90,30 @@ const App: React.FC = () => {
     ctx.clearRect(0, 0, outputWidth, outputHeight);
     ctx.save();
 
-    // 1. Draw Background Image with transform
     const drawWidth = img.naturalWidth * transform.scale;
     const drawHeight = img.naturalHeight * transform.scale;
-    
     const basePosX = (outputWidth - drawWidth) / 2;
     const basePosY = (outputHeight - drawHeight) / 2;
     
-    ctx.drawImage(
-      img, 
-      basePosX + transform.offsetX, 
-      basePosY + transform.offsetY, 
-      drawWidth, 
-      drawHeight
-    );
-    
+    ctx.drawImage(img, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
     ctx.restore();
 
-    // 2. Draw Fixed Overlay
     const W = outputWidth;
     const H = outputHeight;
     const side = W / 2;
-    const thickness = 6;
-
     const rectX = (W - side) / 2;
     const rectY = (H - side) / 2;
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 15;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
 
-    // Square Border
     ctx.strokeStyle = 'white';
-    ctx.lineWidth = thickness;
+    ctx.lineWidth = 6;
     ctx.strokeRect(rectX, rectY, side, side);
 
     ctx.fillStyle = 'white';
-
-    // Date (Top Right)
     const today = new Date();
     const dateDisplay = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     const dateFontSize = Math.floor(side / 22);
@@ -123,313 +122,169 @@ const App: React.FC = () => {
     const margin = side * 0.05;
     ctx.fillText(dateDisplay, rectX + side - margin, rectY + margin + dateFontSize);
 
-    // Workout Stats (Bottom)
     const statsFontSize = Math.floor(side / 16);
     ctx.font = `bold ${statsFontSize}px "Inter", sans-serif`;
     ctx.textAlign = 'center';
 
-    // Time Formatting
     const hoursInt = parseInt(runData.timeHours || '0');
     const m = (runData.timeMinutes || '0').padStart(2, '0');
     const s = (runData.timeSeconds || '0').padStart(2, '0');
     let timeDisplay = hoursInt > 0 ? `${hoursInt.toString().padStart(2, '0')}:${m}:${s}` : `${m}:${s}`;
+    const paceDisplay = calculatePace();
 
-    // Pace Calculation
-    const distanceNum = parseFloat(runData.distance) || 0;
-    let paceDisplay = "-'--\"";
-    if (distanceNum > 0) {
-      const totalSeconds = (parseInt(runData.timeHours || '0') * 3600) + 
-                          (parseInt(runData.timeMinutes || '0') * 60) + 
-                          parseInt(runData.timeSeconds || '0');
-      
-      const paceInSeconds = totalSeconds / distanceNum;
-      const pMin = Math.floor(paceInSeconds / 60);
-      const pSec = Math.floor(paceInSeconds % 60);
-      
-      // limit max minutes for display sanity
-      if (pMin < 100) {
-        paceDisplay = `${pMin}'${pSec.toString().padStart(2, '0')}"`;
-      } else {
-        paceDisplay = "--'--\"";
-      }
-    }
-
-    const displayText = `⏱️${timeDisplay}    📍${runData.distance || '0.00'}km    ⚡${paceDisplay}`;
-    
+    const displayText = `⏱️ ${timeDisplay}    📍 ${runData.distance || '0.0'}km    ⚡ ${paceDisplay}`;
     ctx.fillText(displayText, W / 2, rectY + side - margin);
 
-    setCanvasState(prev => ({ ...prev, processedUrl: canvas.toDataURL('image/jpeg', 0.9) }));
-  }, [canvasState.image, runData, transform]);
+    setCanvasState(prev => ({ ...prev, processedUrl: canvas.toDataURL('image/jpeg', 0.85) }));
+  }, [canvasState.image, runData, transform, calculatePace]);
 
   useEffect(() => {
     drawCanvas();
   }, [drawCanvas]);
 
-  // Interaction Handlers
+  // Interaction Handlers (Simplified)
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
-
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging.current || !canvasState.image) return;
-    const dx = e.clientX - lastMousePos.current.x;
-    const dy = e.clientY - lastMousePos.current.y;
-    const sensitivity = 2; 
     setTransform(prev => ({
       ...prev,
-      offsetX: prev.offsetX + dx * sensitivity,
-      offsetY: prev.offsetY + dy * sensitivity
+      offsetX: prev.offsetX + (e.clientX - lastMousePos.current.x) * 2,
+      offsetY: prev.offsetY + (e.clientY - lastMousePos.current.y) * 2
     }));
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
-
-  const handleMouseUp = () => {
-    isDragging.current = false;
-  };
-
+  const handleMouseUp = () => isDragging.current = false;
   const handleWheel = (e: React.WheelEvent) => {
     if (!canvasState.image) return;
     const delta = e.deltaY > 0 ? 0.95 : 1.05;
-    setTransform(prev => ({
-      ...prev,
-      scale: Math.max(0.1, Math.min(10, prev.scale * delta))
-    }));
+    setTransform(prev => ({ ...prev, scale: Math.max(0.1, Math.min(10, prev.scale * delta)) }));
   };
-
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       isDragging.current = true;
       lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      lastPinchDist.current = dist;
+      lastPinchDist.current = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     }
   };
-
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!canvasState.image) return;
     if (e.touches.length === 1 && isDragging.current) {
-      const dx = e.touches[0].clientX - lastMousePos.current.x;
-      const dy = e.touches[0].clientY - lastMousePos.current.y;
-      const sensitivity = 2;
       setTransform(prev => ({
         ...prev,
-        offsetX: prev.offsetX + dx * sensitivity,
-        offsetY: prev.offsetY + dy * sensitivity
+        offsetX: prev.offsetX + (e.touches[0].clientX - lastMousePos.current.x) * 2,
+        offsetY: prev.offsetY + (e.touches[0].clientY - lastMousePos.current.y) * 2
       }));
       lastMousePos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2 && lastPinchDist.current !== null) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const ratio = dist / lastPinchDist.current;
-      setTransform(prev => ({
-        ...prev,
-        scale: Math.max(0.1, Math.min(10, prev.scale * ratio))
-      }));
+      const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      setTransform(prev => ({ ...prev, scale: Math.max(0.1, Math.min(10, prev.scale * (dist / lastPinchDist.current!))) }));
       lastPinchDist.current = dist;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    isDragging.current = false;
-    lastPinchDist.current = null;
-  };
-
-  const downloadImage = () => {
-    if (canvasState.processedUrl) {
-      const link = document.createElement('a');
-      link.download = `runsnap-${new Date().getTime()}.jpg`;
-      link.href = canvasState.processedUrl;
-      link.click();
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 pb-12 selection:bg-indigo-100">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20 backdrop-blur-md bg-white/80">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+    <div className="min-h-screen bg-gray-50 text-gray-900 pb-10">
+      <header className="bg-white/80 border-b border-gray-100 sticky top-0 z-30 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
-            <h1 className="text-xl font-black tracking-tight text-indigo-900 italic">RunSnap</h1>
+            <span className="font-black text-lg italic tracking-tighter">RunSnap</span>
           </div>
           <button 
-            onClick={downloadImage}
+            onClick={() => {
+              if (canvasState.processedUrl) {
+                const link = document.createElement('a');
+                link.download = `runsnap-${Date.now()}.jpg`;
+                link.href = canvasState.processedUrl;
+                link.click();
+              }
+            }}
             disabled={!canvasState.processedUrl}
-            className={`px-6 py-2.5 rounded-full font-black text-sm transition-all ${
-              canvasState.processedUrl 
-              ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 active:scale-95' 
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
+            className={`px-5 py-2 rounded-full font-bold text-xs transition-all ${canvasState.processedUrl ? 'bg-black text-white active:scale-95' : 'bg-gray-100 text-gray-300'}`}
           >
-            이미지 저장
+            저장하기
           </button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8">
+      <main className="max-w-xl mx-auto px-4 mt-6 flex flex-col gap-6">
         
-        {/* Left Section: Workout Record Input */}
-        <section className="space-y-6 order-2 lg:order-1">
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100">
-            <h2 className="text-xl font-black mb-8 flex items-center gap-3">
-              <span className="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-sm shadow-lg shadow-indigo-100">01</span>
-              기록 수정하기
-            </h2>
-            
-            <div className="space-y-8">
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3">운동 시간 (TIME)</label>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <input type="number" name="timeHours" value={runData.timeHours} onChange={handleInputChange} placeholder="00" className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-center font-black text-lg transition-all" />
-                    <p className="text-[10px] text-center mt-2 text-gray-400 font-bold">HOUR</p>
-                  </div>
-                  <span className="text-gray-200 font-black text-2xl mb-8">:</span>
-                  <div className="flex-1">
-                    <input type="number" name="timeMinutes" value={runData.timeMinutes} onChange={handleInputChange} placeholder="00" min="0" max="59" className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-center font-black text-lg transition-all" />
-                    <p className="text-[10px] text-center mt-2 text-gray-400 font-bold">MIN</p>
-                  </div>
-                  <span className="text-gray-200 font-black text-2xl mb-8">:</span>
-                  <div className="flex-1">
-                    <input type="number" name="timeSeconds" value={runData.timeSeconds} onChange={handleInputChange} placeholder="00" min="0" max="59" className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-center font-black text-lg transition-all" />
-                    <p className="text-[10px] text-center mt-2 text-gray-400 font-bold">SEC</p>
-                  </div>
-                </div>
+        {/* Step 1: Input Section */}
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-end mb-4 px-1">
+            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Workout Data</h2>
+            <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[11px] font-black">
+              Pace: {calculatePace()}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="relative group">
+                <input type="number" name="timeHours" value={runData.timeHours} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">hr</span>
               </div>
-              
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3">운동 거리 (DISTANCE, km)</label>
-                <div className="relative">
-                  <input type="text" name="distance" value={runData.distance} onChange={handleInputChange} placeholder="0.00" className="w-full px-5 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg pr-16 transition-all" />
-                  <span className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-gray-300">KM</span>
-                </div>
+              <div className="relative">
+                <input type="number" name="timeMinutes" value={runData.timeMinutes} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">min</span>
               </div>
-
-              <div className="bg-gray-50 p-6 rounded-2xl border border-dashed border-gray-200">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Estimated Average Pace</p>
-                <p className="text-sm font-black text-indigo-600">시간과 거리를 입력하면 페이스가 자동으로 계산됩니다.</p>
+              <div className="relative">
+                <input type="number" name="timeSeconds" value={runData.timeSeconds} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
+                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">sec</span>
               </div>
             </div>
             
-            <button 
-              onClick={drawCanvas}
-              disabled={!canvasState.image}
-              className={`w-full mt-12 py-5 rounded-2xl font-black text-lg shadow-xl transition-all ${
-                canvasState.image 
-                ? 'bg-black text-white hover:bg-gray-800 hover:shadow-2xl hover:-translate-y-0.5 active:scale-[0.98]' 
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
-              }`}
-            >
-              기록 반영하기
-            </button>
-
-            <div className="mt-8 flex flex-wrap gap-2">
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-black uppercase tracking-wider">#러닝</span>
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-black uppercase tracking-wider">#오운완</span>
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full font-black uppercase tracking-wider">#RunSnap</span>
+            <div className="relative">
+              <input type="number" name="distance" step="0.1" value={runData.distance} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl px-6 font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="0.0" />
+              <span className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300 text-sm">KM</span>
             </div>
           </div>
         </section>
 
-        {/* Right Section: Integrated Preview & Upload */}
-        <section className="order-1 lg:order-2">
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100 sticky top-24">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                스토리 프리뷰
-              </h2>
-              {canvasState.image && (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  이미지 변경
-                </button>
-              )}
-            </div>
+        {/* Step 2: Preview & Image Upload Section */}
+        <section className="bg-white p-3 rounded-[2.5rem] shadow-sm border border-gray-100">
+          <div 
+            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.2rem] flex items-center justify-center select-none touch-none ${!canvasState.image ? 'bg-gray-50 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
+            onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onWheel={handleWheel}
+            onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={() => { isDragging.current = false; lastPinchDist.current = null; }}
+            onClick={() => !canvasState.image && fileInputRef.current?.click()}
+          >
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
             
-            <div 
-              className={`relative aspect-[9/16] w-full overflow-hidden rounded-[1.8rem] border border-gray-100 flex items-center justify-center shadow-inner transition-all duration-300 select-none touch-none ${!canvasState.image ? 'bg-gray-50 border-dashed border-2 border-gray-200 hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer' : 'bg-black cursor-move'}`}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-              onWheel={handleWheel}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-              onClick={() => !canvasState.image && fileInputRef.current?.click()}
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleImageUpload} 
-                className="hidden" 
-                accept="image/*"
-              />
-              
-              {!canvasState.image ? (
-                <div className="text-center p-12">
-                  <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-100/50 mx-auto mb-6">
-                    <svg className="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-black text-gray-800 mb-2">사진 업로드</h3>
-                  <p className="text-xs font-bold text-gray-400 leading-relaxed italic">
-                    오늘의 러닝 인증샷을<br/>이곳에 등록해 주세요.
-                  </p>
+            {!canvasState.image ? (
+              <div className="text-center px-6">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-200 mx-auto mb-4">
+                  <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </div>
-              ) : (
-                <canvas 
-                  ref={canvasRef} 
-                  className="max-w-full max-h-full object-contain pointer-events-none"
-                />
-              )}
-            </div>
-
-            {canvasState.image && (
-              <div className="mt-6 space-y-3">
-                <div className="p-5 bg-indigo-50/50 rounded-2xl flex items-start gap-3 border border-indigo-100">
-                  <div className="w-8 h-8 bg-white rounded-xl shadow-sm flex items-center justify-center text-lg shrink-0">👆</div>
-                  <p className="text-[11px] text-indigo-700 leading-tight font-bold">
-                    이미지를 드래그하여 이동하고,<br/>
-                    마우스 휠이나 핀치 줌으로 크기를 조절하세요.
-                  </p>
-                </div>
-                <div className="flex justify-between items-center px-2">
-                   <p className="text-[10px] font-black text-gray-300 tracking-widest uppercase">Ratio: 9:16 vertical</p>
-                   <button 
-                    onClick={() => setTransform({ scale: 1, offsetX: 0, offsetY: 0 })}
-                    className="text-[10px] font-black text-indigo-600 hover:underline"
-                   >
-                     위치 초기화
-                   </button>
-                </div>
+                <p className="text-sm font-black text-gray-800">인증샷 가져오기</p>
+                <p className="text-[10px] font-bold text-gray-400 mt-1 italic leading-tight">갤러리에서 사진을 선택하세요</p>
+                <p className="text-[10px] font-bold text-gray-400 mt-1 italic leading-tight">사진은 로컬에서 처리됩니다. 서버에 저장되지 않아요 :) </p>
               </div>
+            ) : (
+              <canvas ref={canvasRef} className="max-w-full max-h-full object-contain pointer-events-none" />
             )}
           </div>
+
+          {canvasState.image && (
+            <div className="p-4 flex justify-between items-center">
+               <div className="flex gap-1.5">
+                  <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200">사진 변경</button>
+                  <button onClick={() => setTransform({ scale: 1, offsetX: 0, offsetY: 0 })} className="text-[10px] font-black text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full hover:bg-gray-200">초기화</button>
+               </div>
+               <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest">Story 9:16</span>
+            </div>
+          )}
         </section>
       </main>
 
-      <footer className="max-w-4xl mx-auto px-4 mt-16 text-center text-gray-400 text-[10px] font-black tracking-widest uppercase">
-        <p>© 2026 RunSnap Studio. Keep Pushing Forward.</p>
+      <footer className="mt-12 text-center text-[9px] font-black text-gray-300 tracking-[0.3em] uppercase">
+        RunSnap Studio
       </footer>
     </div>
   );
