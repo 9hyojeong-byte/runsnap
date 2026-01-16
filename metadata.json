@@ -1,0 +1,7 @@
+{
+  "name": "RunSnap: Running Proof Generator",
+  "description": "A professional tool for runners to create beautiful verification photos with their workout stats overlaid on their photos.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

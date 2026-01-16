@@ -1,0 +1,19 @@
+
+{
+  "name": "RunSnap: 러닝 인증샷 생성기",
+  "short_name": "RunSnap",
+  "description": "러닝 기록을 사진 위에 예쁘게 합성해주는 오운완 필수 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5556/5556934.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
