@@ -14,8 +14,6 @@ const App: React.FC = () => {
     timeMinutes: '30',
     timeSeconds: '00',
     distance: '4.2',
-    paceMinutes: '8',
-    paceSeconds: '00',
   });
   
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -39,7 +37,7 @@ const App: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (['timeMinutes', 'timeSeconds', 'paceSeconds'].includes(name)) {
+    if (['timeMinutes', 'timeSeconds'].includes(name)) {
       const val = parseInt(value);
       if (val > 59) return;
     }
@@ -55,7 +53,6 @@ const App: React.FC = () => {
       const img = new Image();
       img.onload = () => {
         setCanvasState(prev => ({ ...prev, image: img }));
-        // Reset transform on new image
         setTransform({ scale: 1, offsetX: 0, offsetY: 0 });
       };
       img.src = event.target?.result as string;
@@ -71,9 +68,6 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // We use a fixed high-resolution internal canvas size for the "result" 
-    // and scale down for the CSS preview if needed. 
-    // Or we match the 9:16 ratio for the base.
     const outputWidth = 1080;
     const outputHeight = 1920;
     canvas.width = outputWidth;
@@ -86,7 +80,6 @@ const App: React.FC = () => {
     const drawWidth = img.naturalWidth * transform.scale;
     const drawHeight = img.naturalHeight * transform.scale;
     
-    // Center the image initially, then apply offsets
     const basePosX = (outputWidth - drawWidth) / 2;
     const basePosY = (outputHeight - drawHeight) / 2;
     
@@ -104,7 +97,7 @@ const App: React.FC = () => {
     const W = outputWidth;
     const H = outputHeight;
     const side = W / 2;
-    const thickness = 6; // Fixed high res thickness
+    const thickness = 6;
 
     const rectX = (W - side) / 2;
     const rectY = (H - side) / 2;
@@ -135,13 +128,32 @@ const App: React.FC = () => {
     ctx.font = `bold ${statsFontSize}px "Inter", sans-serif`;
     ctx.textAlign = 'center';
 
+    // Time Formatting
     const hoursInt = parseInt(runData.timeHours || '0');
     const m = (runData.timeMinutes || '0').padStart(2, '0');
     const s = (runData.timeSeconds || '0').padStart(2, '0');
     let timeDisplay = hoursInt > 0 ? `${hoursInt.toString().padStart(2, '0')}:${m}:${s}` : `${m}:${s}`;
 
-    const pS = (runData.paceSeconds || '0').padStart(2, '0');
-    const paceDisplay = `${runData.paceMinutes || '0'}'${pS}"`;
+    // Pace Calculation
+    const distanceNum = parseFloat(runData.distance) || 0;
+    let paceDisplay = "-'--\"";
+    if (distanceNum > 0) {
+      const totalSeconds = (parseInt(runData.timeHours || '0') * 3600) + 
+                          (parseInt(runData.timeMinutes || '0') * 60) + 
+                          parseInt(runData.timeSeconds || '0');
+      
+      const paceInSeconds = totalSeconds / distanceNum;
+      const pMin = Math.floor(paceInSeconds / 60);
+      const pSec = Math.floor(paceInSeconds % 60);
+      
+      // limit max minutes for display sanity
+      if (pMin < 100) {
+        paceDisplay = `${pMin}'${pSec.toString().padStart(2, '0')}"`;
+      } else {
+        paceDisplay = "--'--\"";
+      }
+    }
+
     const displayText = `⏱️${timeDisplay}    📍${runData.distance || '0.00'}km    ⚡${paceDisplay}`;
     
     ctx.fillText(displayText, W / 2, rectY + side - margin);
@@ -163,8 +175,6 @@ const App: React.FC = () => {
     if (!isDragging.current || !canvasState.image) return;
     const dx = e.clientX - lastMousePos.current.x;
     const dy = e.clientY - lastMousePos.current.y;
-    
-    // Adjust sensitivity based on canvas vs client size ratio
     const sensitivity = 2; 
     setTransform(prev => ({
       ...prev,
@@ -187,7 +197,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // Touch handlers for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       isDragging.current = true;
@@ -306,18 +315,9 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-[0.2em] mb-3">평균 페이스 (PACE)</label>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 flex items-center gap-3">
-                    <input type="number" name="paceMinutes" value={runData.paceMinutes} onChange={handleInputChange} placeholder="5" className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-center transition-all" />
-                    <span className="text-gray-300 font-black text-2xl">'</span>
-                  </div>
-                  <div className="flex-1 flex items-center gap-3">
-                    <input type="number" name="paceSeconds" value={runData.paceSeconds} onChange={handleInputChange} placeholder="00" min="0" max="59" className="w-full px-4 py-4 bg-gray-50 border border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-black text-lg text-center transition-all" />
-                    <span className="text-gray-300 font-black text-2xl">"</span>
-                  </div>
-                </div>
+              <div className="bg-gray-50 p-6 rounded-2xl border border-dashed border-gray-200">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Estimated Average Pace</p>
+                <p className="text-sm font-black text-indigo-600">시간과 거리를 입력하면 페이스가 자동으로 계산됩니다.</p>
               </div>
             </div>
             
