@@ -1,7 +1,7 @@
 
 {
-  "name": "RunSnap: 러닝 인증샷 생성기",
-  "short_name": "RunSnap",
+  "name": "쿠쿠러닝샷: 러닝 인증샷 생성기",
+  "short_name": "쿠쿠러닝샷",
   "description": "러닝 기록을 사진 위에 예쁘게 합성해주는 오운완 필수 앱",
   "start_url": "/",
   "display": "standalone",
@@ -10,7 +10,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/5556/5556838.png",
+      "src": "https://cdn-icons-png.flaticon.com/128/4357/4357645.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

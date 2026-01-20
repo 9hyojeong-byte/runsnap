@@ -4,6 +4,8 @@ export interface RunData {
   timeMinutes: string;
   timeSeconds: string;
   distance: string;
+  heartRate: string;
+  temperature: string;
 }
 
 export interface CanvasState {

@@ -14,6 +14,8 @@ const App: React.FC = () => {
     timeMinutes: '30',
     timeSeconds: '00',
     distance: '5.0',
+    heartRate: '',
+    temperature: '',
   });
   
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -83,7 +85,6 @@ const App: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Fixed High Resolution for Export
     const outputWidth = 1080;
     const outputHeight = 1920;
     canvas.width = outputWidth;
@@ -92,7 +93,6 @@ const App: React.FC = () => {
     ctx.clearRect(0, 0, outputWidth, outputHeight);
     ctx.save();
 
-    // 1. Draw Image
     const drawWidth = img.naturalWidth * transform.scale;
     const drawHeight = img.naturalHeight * transform.scale;
     const basePosX = (outputWidth - drawWidth) / 2;
@@ -101,7 +101,6 @@ const App: React.FC = () => {
     ctx.drawImage(img, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
     ctx.restore();
 
-    // 2. Draw UI Overlay
     const W = outputWidth;
     const H = outputHeight;
     const side = W / 2;
@@ -118,14 +117,26 @@ const App: React.FC = () => {
     ctx.strokeRect(rectX, rectY, side, side);
 
     ctx.fillStyle = 'white';
-    const today = new Date();
-    const dateDisplay = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+    const margin = side * 0.05;
     const dateFontSize = Math.floor(side / 22);
     ctx.font = `600 ${dateFontSize}px "Inter", sans-serif`;
+
+    // 1. Top Left: Heart Rate & Temperature (Conditional)
+    ctx.textAlign = 'left';
+    let topLeftText = '';
+    if (runData.heartRate) topLeftText += `❤️ ${runData.heartRate} bpm  `;
+    if (runData.temperature) topLeftText += `🌡️ ${runData.temperature}°C`;
+    if (topLeftText) {
+      ctx.fillText(topLeftText.trim(), rectX + margin, rectY + margin + dateFontSize);
+    }
+
+    // 2. Top Right: Date
     ctx.textAlign = 'right';
-    const margin = side * 0.05;
+    const today = new Date();
+    const dateDisplay = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     ctx.fillText(dateDisplay, rectX + side - margin, rectY + margin + dateFontSize);
 
+    // 3. Bottom Center: Run Stats
     const statsFontSize = Math.floor(side / 16);
     ctx.font = `bold ${statsFontSize}px "Inter", sans-serif`;
     ctx.textAlign = 'center';
@@ -139,7 +150,6 @@ const App: React.FC = () => {
     const displayText = `⏱️ ${timeDisplay}    📍 ${runData.distance || '0.0'}km    ⚡ ${paceDisplay}`;
     ctx.fillText(displayText, W / 2, rectY + side - margin);
 
-    // Note: Removed toDataURL from here to keep interaction at 60fps
   }, [canvasState.image, runData, transform, calculatePace]);
 
   useEffect(() => {
@@ -156,7 +166,6 @@ const App: React.FC = () => {
     link.click();
   };
 
-  // Improved Interaction Logic
   const getMoveRatio = () => {
     if (!containerRef.current) return 1;
     return 1080 / containerRef.current.clientWidth;
@@ -202,7 +211,7 @@ const App: React.FC = () => {
             <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
-            <span className="font-black text-lg italic tracking-tighter">RunSnap</span>
+            <span className="font-black text-lg italic tracking-tighter">쿠쿠러닝샷</span>
           </div>
           <button 
             onClick={handleDownload}
@@ -228,22 +237,35 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 gap-4">
             <div className="grid grid-cols-3 gap-3">
               <div className="relative">
-                <input type="number" name="timeHours" value={runData.timeHours} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
+                <input type="number" name="timeHours" value={runData.timeHours} onChange={handleInputChange} className="w-full h-12 bg-gray-50 border-0 rounded-xl text-center font-black text-base focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">hr</span>
               </div>
               <div className="relative">
-                <input type="number" name="timeMinutes" value={runData.timeMinutes} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
+                <input type="number" name="timeMinutes" value={runData.timeMinutes} onChange={handleInputChange} className="w-full h-12 bg-gray-50 border-0 rounded-xl text-center font-black text-base focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">min</span>
               </div>
               <div className="relative">
-                <input type="number" name="timeSeconds" value={runData.timeSeconds} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl text-center font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
+                <input type="number" name="timeSeconds" value={runData.timeSeconds} onChange={handleInputChange} className="w-full h-12 bg-gray-50 border-0 rounded-xl text-center font-black text-base focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="00" />
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-black text-gray-300 uppercase">sec</span>
               </div>
             </div>
             
-            <div className="relative">
-              <input type="number" name="distance" step="0.1" value={runData.distance} onChange={handleInputChange} className="w-full h-14 bg-gray-50 border-0 rounded-2xl px-6 font-black text-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="0.0" />
-              <span className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300 text-sm">KM</span>
+            <div className="grid grid-cols-1 gap-3">
+              <div className="relative">
+                <input type="number" name="distance" step="0.1" value={runData.distance} onChange={handleInputChange} className="w-full h-12 bg-gray-50 border-0 rounded-xl px-6 font-black text-base focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="거리 (km)" />
+                <span className="absolute right-6 top-1/2 -translate-y-1/2 font-black text-gray-300 text-xs uppercase tracking-tighter">km</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
+                  <input type="number" name="heartRate" value={runData.heartRate} onChange={handleInputChange} className="w-full h-12 bg-gray-50 border-0 rounded-xl px-4 font-black text-base focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="평균 심박수" />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-gray-300 text-[10px] uppercase">bpm</span>
+                </div>
+                <div className="relative">
+                  <input type="number" name="temperature" value={runData.temperature} onChange={handleInputChange} className="w-full h-12 bg-gray-50 border-0 rounded-xl px-4 font-black text-base focus:ring-2 focus:ring-indigo-500 transition-all outline-none" placeholder="평균 기온" />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-gray-300 text-[10px] uppercase">°C</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -253,7 +275,7 @@ const App: React.FC = () => {
           <div 
             ref={containerRef}
             className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.1rem] flex items-center justify-center select-none touch-none ${!canvasState.image ? 'bg-gray-50 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
-            style={{ touchAction: 'none' }} // Critical for mobile interaction
+            style={{ touchAction: 'none' }}
             onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
             onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
             onMouseUp={() => isDragging.current = false}
@@ -311,7 +333,7 @@ const App: React.FC = () => {
       </main>
 
       <footer className="mt-12 text-center text-[9px] font-black text-gray-300 tracking-[0.4em] uppercase">
-        RunSnap Studio
+        Kuku Studio
       </footer>
     </div>
   );
