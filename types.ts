@@ -6,6 +6,7 @@ export interface RunData {
   distance: string;
   heartRate: string;
   temperature: string;
+  showEmojis: boolean;
 }
 
 export interface CanvasState {

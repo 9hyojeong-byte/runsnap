@@ -16,6 +16,7 @@ const App: React.FC = () => {
     distance: '5.0',
     heartRate: '',
     temperature: '',
+    showEmojis: true,
   });
   
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -53,12 +54,11 @@ const App: React.FC = () => {
   }, [runData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (['timeMinutes', 'timeSeconds'].includes(name)) {
-      const val = parseInt(value);
-      if (val > 59) return;
-    }
-    setRunData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setRunData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : value 
+    }));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,17 +117,23 @@ const App: React.FC = () => {
     ctx.strokeRect(rectX, rectY, side, side);
 
     ctx.fillStyle = 'white';
-    const margin = side * 0.05;
+    const margin = side * 0.06;
     const dateFontSize = Math.floor(side / 22);
     ctx.font = `600 ${dateFontSize}px "Inter", sans-serif`;
 
+    const showEmoji = runData.showEmojis;
+
     // 1. Top Left: Heart Rate & Temperature (Conditional)
     ctx.textAlign = 'left';
-    let topLeftText = '';
-    if (runData.heartRate) topLeftText += `❤️ ${runData.heartRate} bpm  `;
-    if (runData.temperature) topLeftText += `🌡️ ${runData.temperature}°C`;
-    if (topLeftText) {
-      ctx.fillText(topLeftText.trim(), rectX + margin, rectY + margin + dateFontSize);
+    let topLeftParts = [];
+    if (runData.heartRate) {
+      topLeftParts.push(`${showEmoji ? '❤️ ' : ''}${runData.heartRate} bpm`);
+    }
+    if (runData.temperature) {
+      topLeftParts.push(`${showEmoji ? '🌡️ ' : ''}${runData.temperature}°C`);
+    }
+    if (topLeftParts.length > 0) {
+      ctx.fillText(topLeftParts.join('  '), rectX + margin, rectY + margin + dateFontSize);
     }
 
     // 2. Top Right: Date
@@ -136,8 +142,8 @@ const App: React.FC = () => {
     const dateDisplay = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     ctx.fillText(dateDisplay, rectX + side - margin, rectY + margin + dateFontSize);
 
-    // 3. Bottom Center: Run Stats
-    const statsFontSize = Math.floor(side / 16);
+    // 3. Bottom Columns: Run Stats (Improved Layout)
+    const statsFontSize = Math.floor(side / 17);
     ctx.font = `bold ${statsFontSize}px "Inter", sans-serif`;
     ctx.textAlign = 'center';
 
@@ -147,8 +153,29 @@ const App: React.FC = () => {
     let timeDisplay = hoursInt > 0 ? `${hoursInt.toString().padStart(2, '0')}:${m}:${s}` : `${m}:${s}`;
     const paceDisplay = calculatePace();
 
-    const displayText = `⏱️ ${timeDisplay}    📍 ${runData.distance || '0.0'}km    ⚡ ${paceDisplay}`;
-    ctx.fillText(displayText, W / 2, rectY + side - margin);
+    const colWidth = side / 3;
+    const statsY = rectY + side - margin;
+
+    // Column 1: Time
+    ctx.fillText(
+      `${showEmoji ? '⏱️ ' : ''}${timeDisplay}`, 
+      rectX + colWidth * 0.5, 
+      statsY
+    );
+    
+    // Column 2: Distance
+    ctx.fillText(
+      `${showEmoji ? '📍 ' : ''}${runData.distance || '0.0'}km`, 
+      rectX + colWidth * 1.5, 
+      statsY
+    );
+
+    // Column 3: Pace
+    ctx.fillText(
+      `${showEmoji ? '⚡ ' : ''}${paceDisplay}`, 
+      rectX + colWidth * 2.5, 
+      statsY
+    );
 
   }, [canvasState.image, runData, transform, calculatePace]);
 
@@ -227,11 +254,29 @@ const App: React.FC = () => {
         
         {/* Workout Data Section */}
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-end mb-4 px-1">
-            <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Workout Data</h2>
-            <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[11px] font-black">
-              Pace: {calculatePace()}
+          <div className="flex justify-between items-center mb-6 px-1">
+            <div className="flex flex-col">
+              <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Workout Data</h2>
+              <div className="mt-1 flex items-center gap-2">
+                 <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[11px] font-black">
+                  Pace: {calculatePace()}
+                </div>
+              </div>
             </div>
+            
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <span className="text-[10px] font-black text-gray-400 group-hover:text-indigo-600 transition-colors uppercase tracking-tight">Emoji</span>
+              <div className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  name="showEmojis" 
+                  checked={runData.showEmojis} 
+                  onChange={handleInputChange} 
+                  className="sr-only peer" 
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </div>
+            </label>
           </div>
           
           <div className="grid grid-cols-1 gap-4">
