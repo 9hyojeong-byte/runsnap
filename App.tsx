@@ -231,7 +231,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 pb-10">
+    <div className="min-h-screen bg-gray-50 text-gray-900 pb-16">
       <header className="bg-white/80 border-b border-gray-100 sticky top-0 z-30 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -377,9 +377,19 @@ const App: React.FC = () => {
         </section>
       </main>
 
-      <footer className="mt-12 text-center text-[9px] font-black text-gray-300 tracking-[0.4em] uppercase">
+      <footer className="mt-12 mb-4 text-center text-[9px] font-black text-gray-300 tracking-[0.4em] uppercase">
         Kuku Studio
       </footer>
+
+      <div className="flex justify-center pb-8">
+        <button 
+          onClick={() => window.open('https://koo-vibecoding-gal.vercel.app/', '_blank', 'noopener,noreferrer')}
+          className="text-[10px] font-bold text-gray-400 border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-100 transition-colors flex items-center gap-2"
+        >
+          <span>다른 앱 더 보기</span>
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+        </button>
+      </div>
     </div>
   );
 };
