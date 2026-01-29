@@ -3,7 +3,7 @@
   "name": "쿠쿠러닝샷: 러닝 인증샷 생성기",
   "short_name": "쿠쿠러닝샷",
   "description": "러닝 기록을 사진 위에 예쁘게 합성해주는 오운완 필수 앱",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
@@ -11,19 +11,19 @@
   "scope": "./",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/128/4357/4357645.png",
+      "src": "https://cdn-icons-png.flaticon.com/128/13822/13822028.png",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/4357/4357645.png",
+      "src": "https://cdn-icons-png.flaticon.com/128/13822/13822028.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/4357/4357645.png",
+      "src": "https://cdn-icons-png.flaticon.com/128/13822/13822028.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
