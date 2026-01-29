@@ -1,12 +1,23 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { RunData, CanvasState } from './types';
+import { RunData, CanvasState, FilterType } from './types';
 
 interface TransformState {
   scale: number;
   offsetX: number;
   offsetY: number;
 }
+
+const FILTERS: FilterType[] = [
+  { id: 'none', name: 'Original', cssFilter: 'none' },
+  { id: 'grayscale', name: 'B&W', cssFilter: 'grayscale(100%)' },
+  { id: 'sepia', name: 'Classic', cssFilter: 'sepia(60%)' },
+  { id: 'vivid', name: 'Vivid', cssFilter: 'saturate(160%) brightness(110%)' },
+  { id: 'dim', name: 'Moody', cssFilter: 'brightness(70%) contrast(120%)' },
+  { id: 'warm', name: 'Warm', cssFilter: 'sepia(30%) saturate(140%) brightness(105%)' },
+  { id: 'cool', name: 'Cool', cssFilter: 'hue-rotate(180deg) saturate(80%) brightness(110%)' },
+  { id: 'high-contrast', name: 'Hard', cssFilter: 'contrast(150%) brightness(90%)' },
+];
 
 const App: React.FC = () => {
   const [runData, setRunData] = useState<RunData>({
@@ -17,6 +28,7 @@ const App: React.FC = () => {
     heartRate: '',
     temperature: '',
     showEmojis: true,
+    filter: 'none',
   });
   
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -61,6 +73,10 @@ const App: React.FC = () => {
     }));
   };
 
+  const handleFilterSelect = (filterId: string) => {
+    setRunData(prev => ({ ...prev, filter: filterId }));
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -91,8 +107,12 @@ const App: React.FC = () => {
     canvas.height = outputHeight;
 
     ctx.clearRect(0, 0, outputWidth, outputHeight);
-    ctx.save();
+    
+    // Apply Filter
+    const selectedFilter = FILTERS.find(f => f.id === runData.filter);
+    ctx.filter = selectedFilter ? selectedFilter.cssFilter : 'none';
 
+    ctx.save();
     const drawWidth = img.naturalWidth * transform.scale;
     const drawHeight = img.naturalHeight * transform.scale;
     const basePosX = (outputWidth - drawWidth) / 2;
@@ -100,6 +120,9 @@ const App: React.FC = () => {
     
     ctx.drawImage(img, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
     ctx.restore();
+
+    // Reset filter for UI elements
+    ctx.filter = 'none';
 
     const W = outputWidth;
     const H = outputHeight;
@@ -312,6 +335,26 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Filters Section */}
+        <section className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 px-2">Image Filters</h2>
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => handleFilterSelect(f.id)}
+                className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black transition-all ${
+                  runData.filter === f.id
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                }`}
+              >
+                {f.name}
+              </button>
+            ))}
           </div>
         </section>
 

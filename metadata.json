@@ -1,7 +1,5 @@
 {
-  "name": "[쿠쿠러닝샷]",
-  "description": "A professional tool for runners to create beautiful verification photos with their workout stats overlaid on their photos.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "name": "쿠쿠러닝샷",
+  "description": "러닝 기록을 사진 위에 예쁘게 합성해주는 오운완 필수 앱",
+  "requestFramePermissions": []
 }
