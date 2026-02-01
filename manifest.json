@@ -11,19 +11,19 @@
   "scope": "./",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/128/13822/13822028.png",
+      "src": "https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_run.png",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/128/13822/13822028.png",
+      "src": "https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_run.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/128/13822/13822028.png",
+      "src": "https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_run.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
