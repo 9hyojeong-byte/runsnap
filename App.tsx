@@ -27,7 +27,7 @@ const App: React.FC = () => {
     distance: '5.0',
     heartRate: '',
     temperature: '',
-    showEmojis: true,
+    showEmojis: false,
     filter: 'none',
   });
   
@@ -95,8 +95,7 @@ const App: React.FC = () => {
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    const img = canvasState.image;
-    if (!canvas || !img) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -106,23 +105,27 @@ const App: React.FC = () => {
     canvas.width = outputWidth;
     canvas.height = outputHeight;
 
+    // 투명 배경을 위해 clearRect만 수행
     ctx.clearRect(0, 0, outputWidth, outputHeight);
     
-    // Apply Filter
-    const selectedFilter = FILTERS.find(f => f.id === runData.filter);
-    ctx.filter = selectedFilter ? selectedFilter.cssFilter : 'none';
+    const img = canvasState.image;
+    if (img) {
+      // 사진이 있을 때만 필터 및 이미지 렌더링
+      const selectedFilter = FILTERS.find(f => f.id === runData.filter);
+      ctx.filter = selectedFilter ? selectedFilter.cssFilter : 'none';
 
-    ctx.save();
-    const drawWidth = img.naturalWidth * transform.scale;
-    const drawHeight = img.naturalHeight * transform.scale;
-    const basePosX = (outputWidth - drawWidth) / 2;
-    const basePosY = (outputHeight - drawHeight) / 2;
-    
-    ctx.drawImage(img, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
-    ctx.restore();
+      ctx.save();
+      const drawWidth = img.naturalWidth * transform.scale;
+      const drawHeight = img.naturalHeight * transform.scale;
+      const basePosX = (outputWidth - drawWidth) / 2;
+      const basePosY = (outputHeight - drawHeight) / 2;
+      
+      ctx.drawImage(img, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
+      ctx.restore();
 
-    // Reset filter for UI elements
-    ctx.filter = 'none';
+      // UI 요소에는 필터 적용 안 함
+      ctx.filter = 'none';
+    }
 
     const W = outputWidth;
     const H = outputHeight;
@@ -130,15 +133,18 @@ const App: React.FC = () => {
     const rectX = (W - side) / 2;
     const rectY = (H - side) / 2;
 
+    // 그림자 설정 (가독성을 위해)
     ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
     ctx.shadowBlur = 15;
     ctx.shadowOffsetX = 3;
     ctx.shadowOffsetY = 3;
 
+    // 테두리 박스
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 6;
     ctx.strokeRect(rectX, rectY, side, side);
 
+    // 텍스트 설정
     ctx.fillStyle = 'white';
     const margin = side * 0.06;
     const dateFontSize = Math.floor(side / 22);
@@ -146,7 +152,7 @@ const App: React.FC = () => {
 
     const showEmoji = runData.showEmojis;
 
-    // 1. Top Left: Heart Rate & Temperature (Conditional)
+    // 1. 상단 왼쪽: 심박수 및 기온
     ctx.textAlign = 'left';
     let topLeftParts = [];
     if (runData.heartRate) {
@@ -159,13 +165,13 @@ const App: React.FC = () => {
       ctx.fillText(topLeftParts.join('  '), rectX + margin, rectY + margin + dateFontSize);
     }
 
-    // 2. Top Right: Date
+    // 2. 상단 오른쪽: 날짜
     ctx.textAlign = 'right';
     const today = new Date();
     const dateDisplay = today.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
     ctx.fillText(dateDisplay, rectX + side - margin, rectY + margin + dateFontSize);
 
-    // 3. Bottom Columns: Run Stats (Improved Layout)
+    // 3. 하단 스탯
     const statsFontSize = Math.floor(side / 17);
     ctx.font = `bold ${statsFontSize}px "Inter", sans-serif`;
     ctx.textAlign = 'center';
@@ -179,21 +185,21 @@ const App: React.FC = () => {
     const colWidth = side / 3;
     const statsY = rectY + side - margin;
 
-    // Column 1: Time
+    // 시간
     ctx.fillText(
       `${showEmoji ? '⏱️ ' : ''}${timeDisplay}`, 
       rectX + colWidth * 0.5, 
       statsY
     );
     
-    // Column 2: Distance
+    // 거리
     ctx.fillText(
       `${showEmoji ? '📍 ' : ''}${runData.distance || '0.0'}km`, 
       rectX + colWidth * 1.5, 
       statsY
     );
 
-    // Column 3: Pace
+    // 페이스
     ctx.fillText(
       `${showEmoji ? '⚡ ' : ''}${paceDisplay}`, 
       rectX + colWidth * 2.5, 
@@ -209,9 +215,10 @@ const App: React.FC = () => {
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    // 투명을 지원하기 위해 PNG로 저장
+    const dataUrl = canvas.toDataURL('image/png');
     const link = document.createElement('a');
-    link.download = `runsnap-${Date.now()}.jpg`;
+    link.download = `runsnap-${Date.now()}.png`;
     link.href = dataUrl;
     link.click();
   };
@@ -265,8 +272,7 @@ const App: React.FC = () => {
           </div>
           <button 
             onClick={handleDownload}
-            disabled={!canvasState.image}
-            className={`px-5 py-2 rounded-full font-bold text-xs transition-all ${canvasState.image ? 'bg-black text-white active:scale-95' : 'bg-gray-100 text-gray-300'}`}
+            className="px-5 py-2 rounded-full font-bold text-xs transition-all bg-black text-white active:scale-95 shadow-lg shadow-black/10"
           >
             저장하기
           </button>
@@ -338,31 +344,33 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Filters Section */}
-        <section className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 px-2">Image Filters</h2>
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-2">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => handleFilterSelect(f.id)}
-                className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black transition-all ${
-                  runData.filter === f.id
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                    : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
-                }`}
-              >
-                {f.name}
-              </button>
-            ))}
-          </div>
-        </section>
+        {/* Filters Section (Only visible if image exists) */}
+        {canvasState.image && (
+          <section className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+            <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 px-2">Image Filters</h2>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-2">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handleFilterSelect(f.id)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-xl text-[10px] font-black transition-all ${
+                    runData.filter === f.id
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                      : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                  }`}
+                >
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Preview Section */}
         <section className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-gray-100">
           <div 
             ref={containerRef}
-            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.1rem] flex items-center justify-center select-none touch-none ${!canvasState.image ? 'bg-gray-50 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
+            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.1rem] flex items-center justify-center select-none touch-none ${!canvasState.image ? 'bg-gray-200/30 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
             style={{ touchAction: 'none' }}
             onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
             onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
@@ -391,32 +399,38 @@ const App: React.FC = () => {
               isDragging.current = false;
               lastPinchDist.current = null;
             }}
-            onClick={() => !canvasState.image && fileInputRef.current?.click()}
+            onClick={(e) => {
+              // 사진이 없을 때 빈 공간 클릭 시 업로드 창 열기
+              if (!canvasState.image) {
+                fileInputRef.current?.click();
+              }
+            }}
           >
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
             
-            {!canvasState.image ? (
-              <div className="text-center px-6">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-200 mx-auto mb-4">
+            <canvas ref={canvasRef} className="max-w-full max-h-full object-contain pointer-events-none" />
+
+            {!canvasState.image && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-200/50 mb-4 opacity-50">
                   <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </div>
-                <p className="text-sm font-black text-gray-800">사진 업로드</p>
-                <p className="text-[10px] font-bold text-gray-400 mt-1 italic">갤러리에서 사진을 선택하세요</p>
+                <p className="text-[10px] font-black text-indigo-400/50 uppercase tracking-widest">Add Photo</p>
               </div>
-            ) : (
-              <canvas ref={canvasRef} className="max-w-full max-h-full object-contain pointer-events-none" />
             )}
           </div>
 
-          {canvasState.image && (
-            <div className="p-4 flex justify-between items-center">
-               <div className="flex gap-2">
-                  <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl">사진 변경</button>
+          <div className="p-4 flex justify-between items-center">
+             <div className="flex gap-2">
+                <button onClick={() => fileInputRef.current?.click()} className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl active:scale-95 transition-transform">
+                  {canvasState.image ? '사진 변경' : '사진 추가'}
+                </button>
+                {canvasState.image && (
                   <button onClick={() => setTransform({ scale: 1, offsetX: 0, offsetY: 0 })} className="text-[10px] font-black text-gray-400 bg-gray-50 px-4 py-2 rounded-xl">위치 초기화</button>
-               </div>
-               <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Story 9:16</span>
-            </div>
-          )}
+                )}
+             </div>
+             <span className="text-[9px] font-black text-gray-300 uppercase tracking-[0.2em]">Story 9:16</span>
+          </div>
         </section>
       </main>
 
