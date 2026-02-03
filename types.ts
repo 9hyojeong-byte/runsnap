@@ -12,6 +12,8 @@ export interface RunData {
 
 export interface CanvasState {
   image: HTMLImageElement | null;
+  video: HTMLVideoElement | null;
+  mediaType: 'image' | 'video' | null;
   processedUrl: string | null;
 }
 
