@@ -13,8 +13,6 @@ const FILTERS: FilterType[] = [
   { id: 'grayscale', name: 'B&W', cssFilter: 'grayscale(100%)' },
   { id: 'sepia', name: 'Classic', cssFilter: 'sepia(60%)' },
   { id: 'vivid', name: 'Vivid', cssFilter: 'saturate(140%) brightness(105%)' },
-  // Fix: Removed 'brightness' property as it is not defined in the FilterType interface. 
-  // The brightness effect is already correctly applied via the 'cssFilter' string.
   { id: 'dim', name: 'Moody', cssFilter: 'brightness(80%) contrast(110%)' },
   { id: 'warm', name: 'Warm', cssFilter: 'sepia(20%) saturate(130%)' },
   { id: 'cool', name: 'Cool', cssFilter: 'hue-rotate(180deg) saturate(90%) brightness(105%)' },
@@ -74,7 +72,7 @@ const App: React.FC = () => {
   }, [runData]);
 
   const drawOverlay = (ctx: CanvasRenderingContext2D, W: number, H: number) => {
-    const side = W / 1.8; // 박스 크기 살짝 조정
+    const side = W / 1.8;
     const rectX = (W - side) / 2;
     const rectY = (H - side) / 2;
 
@@ -133,13 +131,17 @@ const App: React.FC = () => {
   const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    // 투명 배경을 지원하기 위해 alpha: true 유지 (기본값)
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     if (canvas.width !== OUTPUT_W) {
       canvas.width = OUTPUT_W;
       canvas.height = OUTPUT_H;
     }
+
+    // 매 프레임마다 이전 프레임 삭제 (투명도 유지)
+    ctx.clearRect(0, 0, OUTPUT_W, OUTPUT_H);
 
     const { mediaType, image, video } = canvasState;
     const source = mediaType === 'image' ? image : video;
@@ -159,11 +161,9 @@ const App: React.FC = () => {
       
       ctx.drawImage(source, basePosX + transform.offsetX, basePosY + transform.offsetY, drawWidth, drawHeight);
       ctx.restore();
-    } else {
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, OUTPUT_W, OUTPUT_H);
     }
 
+    // 미디어가 없더라도 오버레이는 항상 그림
     drawOverlay(ctx, OUTPUT_W, OUTPUT_H);
 
     if (mediaType === 'video') {
@@ -219,12 +219,11 @@ const App: React.FC = () => {
       setIsExporting(true);
       setExportProgress(0);
 
-      // 캡처 스트림 설정 (30fps 고정)
       const stream = canvas.captureStream(30);
       const mimeType = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm;codecs=vp9';
       const recorder = new MediaRecorder(stream, { 
         mimeType,
-        videoBitsPerSecond: 2500000 // 2.5Mbps로 최적화
+        videoBitsPerSecond: 2500000 
       });
       
       const chunks: Blob[] = [];
@@ -241,12 +240,10 @@ const App: React.FC = () => {
         video.play();
       };
 
-      // 녹화 준비
       video.pause();
       video.loop = false;
       video.currentTime = 0;
       
-      // 비디오 진행 상황 업데이트 루프
       const updateProgress = () => {
         if (video.paused && video.currentTime > 0) return;
         setExportProgress((video.currentTime / video.duration) * 100);
@@ -264,6 +261,7 @@ const App: React.FC = () => {
 
       await video.play();
     } else {
+      // 이미지 또는 미디어가 없는 경우 PNG로 다운로드 (투명도 보존)
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `runsnap-${Date.now()}.png`;
@@ -388,7 +386,7 @@ const App: React.FC = () => {
 
         <section className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-gray-100">
           <div ref={containerRef}
-            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.1rem] flex items-center justify-center select-none touch-none ${!canvasState.mediaType ? 'bg-gray-200/30 border-2 border-dashed border-gray-100 cursor-pointer' : 'bg-black'}`}
+            className={`relative aspect-[9/16] w-full overflow-hidden rounded-[2.1rem] flex items-center justify-center select-none touch-none ${!canvasState.mediaType ? 'bg-zinc-900 cursor-pointer' : 'bg-black'}`}
             style={{ touchAction: 'none' }}
             onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
             onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
@@ -403,10 +401,11 @@ const App: React.FC = () => {
             <canvas ref={canvasRef} className="max-w-full max-h-full object-contain pointer-events-none" />
             {!canvasState.mediaType && (
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-200/50 mb-4 opacity-50">
-                  <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+                  <svg className="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
                 </div>
                 <p className="text-[10px] font-black text-indigo-400/50 uppercase tracking-widest">Add Media</p>
+                <p className="text-[8px] text-gray-500 mt-2 uppercase font-bold">(미선택 시 투명 배경 저장)</p>
               </div>
             )}
           </div>
