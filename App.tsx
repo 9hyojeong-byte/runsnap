@@ -96,11 +96,14 @@ const App: React.FC = () => {
     // 1. Top Left
     ctx.textAlign = 'left';
     let topLeftParts = [];
-    if (runData.heartRate) topLeftParts.push(`${showEmoji ? '❤️ ' : ''}${runData.heartRate}`);
-    if (runData.temperature) topLeftParts.push(`${showEmoji ? '🌡️ ' : ''}${runData.temperature}°`);
+    // 단위 표시 (bpm, °C) 추가 및 수정
+    if (runData.heartRate) topLeftParts.push(`${showEmoji ? '❤️ ' : ''}${runData.heartRate} bpm`);
+    if (runData.temperature) topLeftParts.push(`${showEmoji ? '🌡️ ' : ''}${runData.temperature}°C`);
     if (topLeftParts.length > 0) {
       ctx.fillText(topLeftParts.join('  '), rectX + margin, rectY + margin + dateFontSize);
     }
+
+
 
     // 2. Top Right
     ctx.textAlign = 'right';
